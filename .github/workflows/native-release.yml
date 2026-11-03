@@ -81,46 +81,6 @@ jobs:
             --github-env "$GITHUB_ENV" \
             --github-path "$GITHUB_PATH"
 
-      - name: Download corrected Windows static Netgen SDK candidate
-        if: matrix.id == 'windows-static'
-        id: candidate_netgen
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          artifact_dir="$RUNNER_TEMP/netgen-candidate-artifact"
-          sdk_dir="$RUNNER_TEMP/netgen-candidate-sdk"
-          rm -rf "$artifact_dir" "$sdk_dir"
-          mkdir -p "$artifact_dir" "$sdk_dir"
-          gh run download 41623556980 \
-            --repo precise-simulation/netgen-sdk \
-            --name windows-netgen-sdk-static-8dfb1c6d87dc \
-            --dir "$artifact_dir"
-          python - "$artifact_dir" "$sdk_dir" <<'PY'
-          import hashlib
-          import pathlib
-          import sys
-          import zipfile
-
-          artifact_dir = pathlib.Path(sys.argv[1])
-          sdk_dir = pathlib.Path(sys.argv[2])
-          archives = list(artifact_dir.glob("*.zip"))
-          if len(archives) != 1:
-              raise SystemExit(f"expected one Netgen SDK zip, found {len(archives)}")
-          archive = archives[0]
-          sidecar = archive.with_name(archive.name + ".sha256")
-          if not sidecar.is_file():
-              raise SystemExit(f"missing checksum sidecar: {sidecar}")
-          expected = sidecar.read_text(encoding="ascii").split()[0].lower()
-          actual = hashlib.sha256(archive.read_bytes()).hexdigest()
-          if actual != expected:
-              raise SystemExit(f"Netgen candidate checksum mismatch: {actual}")
-          with zipfile.ZipFile(archive) as package:
-              package.extractall(sdk_dir)
-          PY
-          echo "netgen_dir=$sdk_dir" >> "$GITHUB_OUTPUT"
-
       - name: Select Xcode 16.4
         if: matrix.platform == 'macos'
         shell: bash
@@ -230,7 +190,7 @@ jobs:
         shell: bash
         env:
           OCCT_ROOT: ${{ steps.sdk.outputs.occt_root }}
-          NETGEN_DIR: ${{ matrix.id == 'windows-static' && steps.candidate_netgen.outputs.netgen_dir || steps.sdk.outputs.netgen_dir }}
+          NETGEN_DIR: ${{ steps.sdk.outputs.netgen_dir }}
           PACKAGE_BASE: ${{ matrix.package_base }}
           EXTENSION: ${{ matrix.extension }}
           STATIC_BUILD: ${{ matrix.static }}

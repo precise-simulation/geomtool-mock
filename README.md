@@ -8,7 +8,7 @@ tree can replace the mock source tree without changing the release machinery.
 The designated binary SDK producers are:
 
 - `precise-simulation/OCCT-sdk` release `occt-sdk-8.0.1`
-- `precise-simulation/netgen-sdk` release `netgen-sdk-a4ddfe975002-r1`
+- `precise-simulation/netgen-sdk` release `netgen-sdk-2acc7e8443a4-r1`
 
 All SDK archives are pinned by SHA-256 in `scripts/fetch_sdks.py`.
 
