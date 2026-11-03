@@ -15,7 +15,7 @@ OCCT_BASE = (
 )
 NETGEN_BASE = (
     "https://github.com/precise-simulation/netgen-sdk/releases/download/"
-    "netgen-sdk-a4ddfe975002-r1/"
+    "netgen-sdk-2acc7e8443a4-r1/"
 )
 
 
@@ -28,9 +28,9 @@ RELEASES = {
         ),
         "netgen": (
             NETGEN_BASE
-            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            + "netgen-featool-v6.2.2608-2acc7e8443a4-occt8.0.1-"
             "linux-x86_64-glibc2.17-gcc10.tar.gz",
-            "25d5580d121e3fceca7796ed64323de5b2e5efa1a6e7d1fc1a918b89140937e7",
+            "71cf2fe7d7930afb8f23c81f0364b5b35f0dee3f805acd19615492a7ec32b867",
         ),
     },
     "linux-static": {
@@ -41,9 +41,9 @@ RELEASES = {
         ),
         "netgen": (
             NETGEN_BASE
-            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            + "netgen-featool-v6.2.2608-2acc7e8443a4-occt8.0.1-"
             "linux-x86_64-glibc2.17-gcc10-static.tar.gz",
-            "e426ca5e2946f2899ffa4d8c51f3627ebb428ec6fa1127dbf37aaa1c72668b3b",
+            "5ad838a7bb94b22dc85c47852b17f2a023851de5a59636cba225161aac7e043a",
         ),
     },
     "macos-arm64": {
@@ -54,9 +54,9 @@ RELEASES = {
         ),
         "netgen": (
             NETGEN_BASE
-            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            + "netgen-featool-v6.2.2608-2acc7e8443a4-occt8.0.1-"
             "macos13-arm64-clang.tar.gz",
-            "a9e406bd7d983b010cfe9478a237bcf61e2ee7a6973e5996d294b87ed9f6616f",
+            "bfb3be5afee3ce9f7d9e40643f74d6fc8c0330912e437ac84d3adaae61d8c380",
         ),
     },
     "macos-arm64-static": {
@@ -67,9 +67,9 @@ RELEASES = {
         ),
         "netgen": (
             NETGEN_BASE
-            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            + "netgen-featool-v6.2.2608-2acc7e8443a4-occt8.0.1-"
             "macos13-arm64-clang-static.tar.gz",
-            "575766344bd33a6047e8c77a66eed891e4e3bc220e87d5207a8c59361c4bcaef",
+            "0d46336fe9f5255595eecbda069e6a6df8bef52abc695fce93ad4cce55c10959",
         ),
     },
     "macos-x86_64": {
@@ -80,9 +80,9 @@ RELEASES = {
         ),
         "netgen": (
             NETGEN_BASE
-            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            + "netgen-featool-v6.2.2608-2acc7e8443a4-occt8.0.1-"
             "macos13-x86_64-clang.tar.gz",
-            "01ca73c321b6b6e5721f449b5bc0bf48e5372531b2315bcdeeec599605418147",
+            "e41f398a26e8f1895be6bcbfa86a85ea58fbcccb61738ca64361dd55fb6cc75d",
         ),
     },
     "macos-x86_64-static": {
@@ -93,9 +93,9 @@ RELEASES = {
         ),
         "netgen": (
             NETGEN_BASE
-            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            + "netgen-featool-v6.2.2608-2acc7e8443a4-occt8.0.1-"
             "macos13-x86_64-clang-static.tar.gz",
-            "e1b60dfa3aaed3f91fb9c8e51e0955ab6f4348da485125907ce3bf888d13477d",
+            "b40c95988f8fd53d5dfba3350e9b800ac0d0b1feb28ebd1e28104be042e92a27",
         ),
     },
     "windows": {
@@ -106,8 +106,8 @@ RELEASES = {
         ),
         "netgen": (
             NETGEN_BASE
-            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-win64-msvc.zip",
-            "2da605814cd6ba105c4c2b9f66b95eb1b71024a2a4bb8428d10367779efe5d1b",
+            + "netgen-featool-v6.2.2608-2acc7e8443a4-occt8.0.1-win64-msvc.zip",
+            "819c0abd970e400a24943940162a3792698e7107ae0790312485ae79b35a8c90",
         ),
     },
     "windows-static": {
@@ -118,8 +118,8 @@ RELEASES = {
         ),
         "netgen": (
             NETGEN_BASE
-            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-win64-msvc-static.zip",
-            "3651161599acaac351d10fb4e224feadc9b90110c04383fbfc6875c34a5269cc",
+            + "netgen-featool-v6.2.2608-2acc7e8443a4-occt8.0.1-win64-msvc-static.zip",
+            "b503ab285423f863832bee4142295639df52279c95c3457e5961f6361c8801b6",
         ),
     },
 }

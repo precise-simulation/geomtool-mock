@@ -8,7 +8,7 @@ tree can replace the mock source tree without changing the release machinery.
 The designated binary SDK producers are:
 
 - `precise-simulation/OCCT-sdk` release `occt-sdk-8.0.1`
-- `precise-simulation/netgen-sdk` release `netgen-sdk-a4ddfe975002-r1`
+- `precise-simulation/netgen-sdk` release `netgen-sdk-2acc7e8443a4-r1`
 
 All SDK archives are pinned by SHA-256 in `scripts/fetch_sdks.py`.
 
@@ -76,11 +76,7 @@ Linux builds run inside the pinned manylinux2014 producer image and retain the
 pipeline. macOS builds target macOS 13.0 with Xcode 16.4. Windows uses the
 GitHub-hosted VS2022 worker. Windows static packages retain the `/MD` runtime
 contract of the qualified OCCT and Netgen SDKs; top-level CMake supplies the
-OCCT static consumer definitions and required Windows system libraries. The
-Netgen 6.2.2608 Windows static SDK also needs its OCC archive types registered
-after ordinary C++ static initialization. Top-level CMake adds
-`cmake/windows_static_netgen_registration.cpp` for `STATIC` Windows Netgen
-builds, so this compatibility glue remains in place when `src/` is replaced.
+OCCT static consumer definitions and required Windows system libraries.
 
 Every job:
 
