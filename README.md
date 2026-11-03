@@ -14,8 +14,9 @@ All SDK archives are pinned by SHA-256 in `scripts/fetch_sdks.py`.
 
 ## Drop-in source contract
 
-`CMakeLists.txt` uses the same native source graph and build switches as full
-Geomtool:
+`src/sources.cmake` and `third_party/instantmesh2d/sources.cmake` own the native
+source graph. `CMakeLists.txt` consumes those manifests with the same build
+switches as full Geomtool:
 
 - base sources: `export.cpp`, `geom.cpp`, `geom_ops.cpp`,
   `geom_util.cpp`, `gobj.cpp`, `import.cpp`, `main.cpp`,
@@ -29,8 +30,8 @@ Geomtool:
 
 The mock files under `src/` and `third_party/instantmesh2d/` exist only to
 exercise that graph. Replacing those directories with the corresponding real
-Geomtool sources is the intended compatibility test; CI and packaging should
-not need source-specific edits.
+Geomtool source directories also replaces the authoritative source manifests;
+CI, top-level CMake, and packaging should not need source-specific edits.
 
 The mock executable keeps three real integration operations:
 

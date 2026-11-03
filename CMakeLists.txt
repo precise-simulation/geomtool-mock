@@ -174,38 +174,29 @@ if(USE_MESH)
   endforeach()
 endif()
 
-set(SOURCES
-  ${SRCDIR}/export.cpp
-  ${SRCDIR}/geom.cpp
-  ${SRCDIR}/geom_ops.cpp
-  ${SRCDIR}/geom_util.cpp
-  ${SRCDIR}/gobj.cpp
-  ${SRCDIR}/import.cpp
-  ${SRCDIR}/main.cpp
-  ${SRCDIR}/shapemap.cpp
-  ${SRCDIR}/util.cpp)
+include("${SRCDIR}/sources.cmake")
+set(SOURCES ${GEOMTOOL_BASE_SOURCES})
 
 if(USE_MESH OR USE_INSTANTMESH2D)
-  list(APPEND SOURCES ${SRCDIR}/mesh.cpp)
+  list(APPEND SOURCES ${GEOMTOOL_MESH_SOURCES})
 endif()
 
 if(USE_MESH)
-  list(APPEND SOURCES ${SRCDIR}/mesh_netgen.cpp)
-  set_source_files_properties(${SRCDIR}/mesh_netgen.cpp PROPERTIES
+  list(APPEND SOURCES ${GEOMTOOL_NETGEN_SOURCES})
+  set_source_files_properties(${GEOMTOOL_NETGEN_SOURCES} PROPERTIES
     COMPILE_DEFINITIONS OCCGEOMETRY)
 endif()
 
 if(USE_INSTANTMESH2D)
+  include("${INSTANTMESH2D_DIR}/sources.cmake")
   add_library(instantmesh2d_core STATIC
-    ${INSTANTMESH2D_DIR}/instantmesh2d.cpp
-    ${INSTANTMESH2D_DIR}/instantmesh2d_field.cpp
-    ${INSTANTMESH2D_DIR}/instantmesh2d_predicates.cpp)
+    ${GEOMTOOL_INSTANTMESH2D_CORE_SOURCES})
   target_include_directories(instantmesh2d_core PUBLIC ${INSTANTMESH2D_DIR})
   set_target_properties(instantmesh2d_core PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF)
-  list(APPEND SOURCES ${SRCDIR}/mesh_instant.cpp)
+  list(APPEND SOURCES ${GEOMTOOL_INSTANTMESH2D_SOURCES})
 endif()
 
 add_executable(geomtool ${SOURCES})

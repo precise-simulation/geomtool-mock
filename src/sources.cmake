@@ -1,0 +1,19 @@
+set(GEOMTOOL_BASE_SOURCES
+  "${CMAKE_CURRENT_LIST_DIR}/export.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/geom.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/geom_ops.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/geom_util.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/gobj.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/import.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/main.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/shapemap.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/util.cpp")
+
+set(GEOMTOOL_MESH_SOURCES
+  "${CMAKE_CURRENT_LIST_DIR}/mesh.cpp")
+
+set(GEOMTOOL_NETGEN_SOURCES
+  "${CMAKE_CURRENT_LIST_DIR}/mesh_netgen.cpp")
+
+set(GEOMTOOL_INSTANTMESH2D_SOURCES
+  "${CMAKE_CURRENT_LIST_DIR}/mesh_instant.cpp")
