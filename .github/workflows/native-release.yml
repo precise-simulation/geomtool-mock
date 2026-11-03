@@ -138,7 +138,7 @@ jobs:
           rm -rf "$work"
           mkdir -p "$work/assets"
 
-          docker run --rm \
+          docker run --rm -i \
             -e CMAKE_VERSION \
             -e GITHUB_RUN_NUMBER \
             -e PACKAGE_BASE \
@@ -227,7 +227,9 @@ jobs:
           TARGET_PLATFORM: ${{ matrix.platform }}
           MACOSX_DEPLOYMENT_TARGET: "13.0"
         run: |
-          set -euo pipefail
+          # macOS runners still use Bash 3.2, where an empty array expansion
+          # trips nounset. Keep fail-fast and pipeline checking without -u.
+          set -eo pipefail
           assets="$RUNNER_TEMP/geomtool-native/assets"
           rm -rf "$RUNNER_TEMP/geomtool-native"
           mkdir -p "$assets"
