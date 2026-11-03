@@ -70,11 +70,15 @@ Shared packages contain the executable and SDK runtime libraries at archive
 root. Static packages contain the executable only. Runtime packages reject
 development headers and static/import libraries during verification.
 
-`.github/workflows/release.yml` is a reusable release orchestrator. A
-`v*` tag or a manual dispatch from `main` first invokes the complete native
-qualification matrix, verifies the exact 14-package artifact set and every
-SHA-256 sidecar, then publishes those files to the GitHub Release matching
-`src/globals.hpp`'s `VERSION`.
+`.github/workflows/release.yml` runs on each push to `main` or a manual
+dispatch from `main`. It invokes the complete native qualification matrix,
+checks the exact 14-package artifact set and every SHA-256 sidecar, then creates
+a draft GitHub prerelease and verifies the uploaded files byte-for-byte before
+publishing it. Test tags are unique per run and attempt, with the form
+`test-v<VERSION>-<run-id>-<attempt>`; the workflow never claims the production
+`v<VERSION>` tag or marks a test release as latest. An existing release is not
+overwritten. Pull requests continue to run native qualification without
+publishing, and the native workflow can also be dispatched independently.
 
 No CircleCI configuration is used.
 

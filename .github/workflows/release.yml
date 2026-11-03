@@ -1,20 +1,24 @@
-name: Release Geomtool
+name: Test Geomtool release publication
 
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
 
 permissions:
   contents: write
+
+concurrency:
+  group: mock-release-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   qualify:
     uses: ./.github/workflows/native-release.yml
 
   publish:
-    name: Publish qualified native release
+    name: Publish qualified test prerelease
     needs: qualify
     runs-on: ubuntu-latest
     steps:
@@ -45,14 +49,10 @@ jobs:
           print(match.group(1))
           PY
           )"
-          tag="v$version"
+          tag="test-v${version}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
-          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF_NAME" != "$tag" ]]; then
-            echo "tag $GITHUB_REF_NAME does not match VERSION $version" >&2
-            exit 1
-          fi
-          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" != refs/heads/main ]]; then
-            echo "manual releases must be dispatched from main" >&2
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "test releases must run from main" >&2
             exit 1
           fi
 
@@ -72,7 +72,9 @@ jobs:
             geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-static.tar.gz
             geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-static-instantmesh2d.tar.gz
           )
+          expected_files=()
           for package in "${expected[@]}"; do
+            expected_files+=("$package" "$package.sha256")
             test -s "release-assets/$package"
             test -s "release-assets/$package.sha256"
             (
@@ -80,13 +82,18 @@ jobs:
               sha256sum -c "$package.sha256"
             )
           done
-          package_count="$(find release-assets -maxdepth 1 -type f \( -name '*.zip' -o -name '*.tar.gz' \) | wc -l)"
-          test "$package_count" -eq "${#expected[@]}"
+          mapfile -t actual_files < <(find release-assets -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
+          mapfile -t expected_files < <(printf '%s\n' "${expected_files[@]}" | sort)
+          if [[ "${actual_files[*]}" != "${expected_files[*]}" ]]; then
+            echo "release artifacts do not match the expected 14 packages and sidecars" >&2
+            diff -u <(printf '%s\n' "${expected_files[@]}") <(printf '%s\n' "${actual_files[@]}") || true
+            exit 1
+          fi
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - name: Publish GitHub release
+      - name: Create test release draft
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -134,10 +141,37 @@ jobs:
           fi
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" release-assets/* --clobber
-          else
-            gh release create "$RELEASE_TAG" release-assets/* \
-              --target "$GITHUB_SHA" \
-              --title "Geomtool $RELEASE_VERSION" \
-              --generate-notes
+            echo "Test release $RELEASE_TAG already exists; refusing to replace its assets" >&2
+            exit 1
           fi
+
+          gh release create "$RELEASE_TAG" release-assets/* \
+            --verify-tag \
+            --title "Geomtool mock test $RELEASE_VERSION ($GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT)" \
+            --generate-notes \
+            --prerelease \
+            --latest=false \
+            --draft
+
+      - name: Verify uploaded draft and publish prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          release_json="$(gh release view "$RELEASE_TAG" --json tagName,isDraft,assets)"
+          [[ "$(jq -r '.tagName' <<<"$release_json")" == "$RELEASE_TAG" ]]
+          [[ "$(jq -r '.isDraft' <<<"$release_json")" == true ]]
+          local_names="$(find release-assets -maxdepth 1 -type f -printf '%f\n' | sort)"
+          remote_names="$(jq -r '.assets[].name' <<<"$release_json" | sort)"
+          [[ "$local_names" == "$remote_names" ]] || {
+            echo "draft release assets differ from qualified packages" >&2
+            exit 1
+          }
+          mkdir -p release-verify
+          gh release download "$RELEASE_TAG" --dir release-verify
+          for source in release-assets/*; do
+            cmp "$source" "release-verify/$(basename "$source")"
+          done
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
