@@ -150,7 +150,9 @@ jobs:
             -v "$work:/work" \
             "$PRODUCER_IMAGE:$PRODUCER_IMAGE_TAG@$PRODUCER_IMAGE_DIGEST" \
             bash -s <<'BASH'
-          set -euo pipefail
+          # manylinux2014 ships an older Bash where an empty array expansion
+          # trips nounset. Keep fail-fast and pipeline checking without -u.
+          set -eo pipefail
           python_bin=/opt/python/cp312-cp312/bin/python
           "$python_bin" -m pip install --disable-pip-version-check --quiet "cmake==$CMAKE_VERSION"
           export PATH="/opt/python/cp312-cp312/bin:$PATH"
