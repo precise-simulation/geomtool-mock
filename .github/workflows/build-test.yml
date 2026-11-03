@@ -1,0 +1,64 @@
+name: Build and test geomtool mock
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            runner: ubuntu-22.04
+            sdk-platform: linux
+          - name: macOS arm64
+            runner: macos-15
+            sdk-platform: macos-arm64
+          - name: Windows x86_64
+            runner: windows-2022
+            sdk-platform: windows
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download and verify designated SDKs
+        id: sdk
+        shell: bash
+        run: |
+          python scripts/fetch_sdks.py \
+            --platform "${{ matrix.sdk-platform }}" \
+            --output "${{ runner.temp }}/geomtool-mock-sdks" \
+            --github-output "$GITHUB_OUTPUT" \
+            --github-env "$GITHUB_ENV" \
+            --github-path "$GITHUB_PATH"
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DOCCT_ROOT="${{ steps.sdk.outputs.occt_root }}" \
+            -DNETGEN_DIR="${{ steps.sdk.outputs.netgen_dir }}"
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config Release --parallel --target geomtool
+
+      - name: End-to-end tests
+        shell: bash
+        run: ctest --test-dir build -C Release --output-on-failure
