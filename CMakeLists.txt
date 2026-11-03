@@ -199,6 +199,14 @@ if(USE_INSTANTMESH2D)
   list(APPEND SOURCES ${GEOMTOOL_INSTANTMESH2D_SOURCES})
 endif()
 
+if(STATIC AND WIN32 AND USE_MESH)
+  set(_windows_static_netgen_registration
+    "${PROJECT_SOURCE_DIR}/cmake/windows_static_netgen_registration.cpp")
+  list(APPEND SOURCES ${_windows_static_netgen_registration})
+  set_source_files_properties(${_windows_static_netgen_registration} PROPERTIES
+    COMPILE_DEFINITIONS OCCGEOMETRY)
+endif()
+
 add_executable(geomtool ${SOURCES})
 set_target_properties(geomtool PROPERTIES
   CXX_STANDARD 20

@@ -56,39 +56,45 @@ jobs:
             exit 1
           fi
 
-          expected=(
-            geomtool-win64-msvc-occt8.0.1-netgen6.2.2608.zip
-            geomtool-win64-msvc-occt8.0.1-netgen6.2.2608-instantmesh2d.zip
-            geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608.tar.gz
-            geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608-instantmesh2d.tar.gz
-            geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608.tar.gz
-            geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608-instantmesh2d.tar.gz
-            geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608.tar.gz
-            geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-instantmesh2d.tar.gz
-            geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608-static.tar.gz
-            geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608-static-instantmesh2d.tar.gz
-            geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608-static.tar.gz
-            geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608-static-instantmesh2d.tar.gz
-            geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-static.tar.gz
-            geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-static-instantmesh2d.tar.gz
-          )
-          expected_files=()
-          for package in "${expected[@]}"; do
-            expected_files+=("$package" "$package.sha256")
-            test -s "release-assets/$package"
-            test -s "release-assets/$package.sha256"
-            (
-              cd release-assets
-              sha256sum -c "$package.sha256"
-            )
-          done
-          mapfile -t actual_files < <(find release-assets -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
-          mapfile -t expected_files < <(printf '%s\n' "${expected_files[@]}" | sort)
-          if [[ "${actual_files[*]}" != "${expected_files[*]}" ]]; then
-            echo "release artifacts do not match the expected 14 packages and sidecars" >&2
-            diff -u <(printf '%s\n' "${expected_files[@]}") <(printf '%s\n' "${actual_files[@]}") || true
-            exit 1
-          fi
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          contract_path = Path(".github/native-release-matrix.json")
+          asset_dir = Path("release-assets")
+          contract = json.loads(contract_path.read_text(encoding="utf-8"))
+          expected_packages = set()
+          for entry in contract["include"]:
+              base = entry["package_base"]
+              extension = entry["extension"]
+              expected_packages.add(f"{base}{extension}")
+              expected_packages.add(f"{base}-instantmesh2d{extension}")
+
+          expected_files = expected_packages | {
+              f"{package}.sha256" for package in expected_packages
+          }
+          actual_files = {path.name for path in asset_dir.iterdir() if path.is_file()}
+          if actual_files != expected_files:
+              missing = sorted(expected_files - actual_files)
+              extra = sorted(actual_files - expected_files)
+              raise SystemExit(
+                  "release artifacts do not match the native release contract; "
+                  f"missing={missing}, extra={extra}"
+              )
+
+          for package in sorted(expected_packages):
+              archive = asset_dir / package
+              sidecar = asset_dir / f"{package}.sha256"
+              if archive.stat().st_size == 0 or sidecar.stat().st_size == 0:
+                  raise SystemExit(f"empty release artifact: {package}")
+              fields = sidecar.read_text(encoding="ascii").split()
+              if len(fields) < 2 or fields[1] != package:
+                  raise SystemExit(f"invalid checksum sidecar: {sidecar.name}")
+              actual = hashlib.sha256(archive.read_bytes()).hexdigest()
+              if actual != fields[0]:
+                  raise SystemExit(f"SHA-256 mismatch for {package}")
+          PY
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"

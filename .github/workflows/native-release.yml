@@ -15,69 +15,40 @@ env:
   CMAKE_VERSION: "3.31.6"
 
 jobs:
+  matrix:
+    name: Load native release matrix
+    runs-on: ubuntu-latest
+    outputs:
+      native: ${{ steps.matrix.outputs.native }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load release contract
+        id: matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          matrix="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path(".github/native-release-matrix.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          include = data.get("include")
+          if not isinstance(include, list) or not include:
+              raise SystemExit(f"{path} must define a nonempty include array")
+          print(json.dumps(data, separators=(",", ":")))
+          PY
+          )"
+          echo "native=$matrix" >> "$GITHUB_OUTPUT"
+
   native:
+    needs: matrix
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - id: windows-shared
-            name: Windows x86_64 shared packages
-            runner: windows-2022
-            sdk: windows
-            platform: windows
-            static: "false"
-            package_base: geomtool-win64-msvc-occt8.0.1-netgen6.2.2608
-            extension: .zip
-          - id: linux-shared
-            name: Linux x86_64 shared packages
-            runner: ubuntu-24.04
-            sdk: linux
-            platform: linux
-            static: "false"
-            package_base: geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608
-            extension: .tar.gz
-          - id: macos-x86_64-shared
-            name: macOS x86_64 shared packages
-            runner: macos-15-intel
-            sdk: macos-x86_64
-            platform: macos
-            static: "false"
-            package_base: geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608
-            extension: .tar.gz
-          - id: macos-arm64-shared
-            name: macOS arm64 shared packages
-            runner: macos-15
-            sdk: macos-arm64
-            platform: macos
-            static: "false"
-            package_base: geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608
-            extension: .tar.gz
-          - id: linux-static
-            name: Linux x86_64 static packages
-            runner: ubuntu-24.04
-            sdk: linux-static
-            platform: linux
-            static: "true"
-            package_base: geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608-static
-            extension: .tar.gz
-          - id: macos-x86_64-static
-            name: macOS x86_64 static packages
-            runner: macos-15-intel
-            sdk: macos-x86_64-static
-            platform: macos
-            static: "true"
-            package_base: geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608-static
-            extension: .tar.gz
-          - id: macos-arm64-static
-            name: macOS arm64 static packages
-            runner: macos-15
-            sdk: macos-arm64-static
-            platform: macos
-            static: "true"
-            package_base: geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-static
-            extension: .tar.gz
+      matrix: ${{ fromJSON(needs.matrix.outputs.native) }}
 
     steps:
       - name: Check out release skeleton

@@ -28,24 +28,42 @@ switches as full Geomtool:
   `OCCT_ROOT`, `NETGEN_DIR`, `OCC_INC_DIR`, `OCC_LIB_DIR`, and
   `OpenCASCADE_DIR`
 
+The replacement source tree must preserve the manifest interface used by
+top-level CMake. `src/sources.cmake` defines `GEOMTOOL_BASE_SOURCES`,
+`GEOMTOOL_MESH_SOURCES`, `GEOMTOOL_NETGEN_SOURCES`, and
+`GEOMTOOL_INSTANTMESH2D_SOURCES`; `third_party/instantmesh2d/sources.cmake`
+defines `GEOMTOOL_INSTANTMESH2D_CORE_SOURCES`. The listed files may change when
+the real source is dropped in, but those variables remain the build boundary.
+
+Release publication also reads the product version directly from
+`src/globals.hpp`. The replacement tree must keep an exact, unindented
+definition of the form `#define VERSION "<version>"` on its own line. The
+version string is used to construct test release tags.
+
 The mock files under `src/` and `third_party/instantmesh2d/` exist only to
-exercise that graph. Replacing those directories with the corresponding real
-Geomtool source directories also replaces the authoritative source manifests;
-CI, top-level CMake, and packaging should not need source-specific edits.
+exercise that contract. Replacing those directories with the corresponding
+real Geomtool source directories also replaces the authoritative source
+manifests; CI, top-level CMake, and packaging should not need source-specific
+edits.
 
-The mock executable keeps three real integration operations:
+The replacement executable must preserve the three integration behaviors used
+by `tests/e2e.py` and package qualification:
 
-- `geomtool ver -v 1`
-- `geomtool block ... -o block.brep block.stl`, using OCCT
-- `geomtool mesh block.brep -hmax 0.35 -o block.vol`, using Netgen's OCC API
+- `geomtool ver -v 1` exits successfully and prints nonempty version output;
+- `geomtool block ... -o block.brep block.stl` exits successfully and produces
+  nonempty BREP and STL outputs using OCCT; and
+- `geomtool mesh block.brep -hmax 0.35 -o block.vol` exits successfully and
+  produces a nonempty Netgen VOL mesh. If it prints the mock-compatible
+  `mesh points=<n> surface=<n> volume=<n>` summary, all counts must be positive.
 
 ## Native release qualification
 
 `.github/workflows/native-release.yml` builds release packages on GitHub
-Actions only. It produces the same 14 package names used by the full native
-Geomtool release contract:
+Actions only. `.github/native-release-matrix.json` is the single package matrix
+used by qualification and publication. It produces the same 16 package names
+used by the full native Geomtool release contract:
 
-- Windows x86_64 shared: Netgen-only and Netgen + InstantMesh2D
+- Windows x86_64 shared and static: Netgen-only and Netgen + InstantMesh2D
 - Linux x86_64 glibc 2.17 / GCC 10 shared: both variants
 - macOS 13 x86_64 shared: both variants
 - macOS 13 arm64 shared: both variants
@@ -56,7 +74,13 @@ Geomtool release contract:
 Linux builds run inside the pinned manylinux2014 producer image and retain the
 `_GLIBCXX_USE_CXX11_ABI=0` compatibility flag used by the full Geomtool
 pipeline. macOS builds target macOS 13.0 with Xcode 16.4. Windows uses the
-GitHub-hosted VS2022 worker.
+GitHub-hosted VS2022 worker. Windows static packages retain the `/MD` runtime
+contract of the qualified OCCT and Netgen SDKs; top-level CMake supplies the
+OCCT static consumer definitions and required Windows system libraries. The
+Netgen 6.2.2608 Windows static SDK also needs its OCC archive types registered
+after ordinary C++ static initialization. Top-level CMake adds
+`cmake/windows_static_netgen_registration.cpp` for `STATIC` Windows Netgen
+builds, so this compatibility glue remains in place when `src/` is replaced.
 
 Every job:
 
@@ -73,7 +97,8 @@ development headers and static/import libraries during verification.
 
 `.github/workflows/release.yml` runs on each push to `main` or a manual
 dispatch from `main`. It invokes the complete native qualification matrix,
-checks the exact 14-package artifact set and every SHA-256 sidecar, then creates
+checks the exact package set derived from `.github/native-release-matrix.json`
+and every SHA-256 sidecar, then creates
 a draft GitHub prerelease and verifies the uploaded files byte-for-byte before
 publishing it. Test tags are unique per run and attempt, with the form
 `test-v<VERSION>-<run-id>-<attempt>`; the workflow never claims the production
