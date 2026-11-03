@@ -9,49 +9,117 @@ import urllib.request
 import zipfile
 
 
+OCCT_BASE = (
+    "https://github.com/precise-simulation/OCCT-sdk/releases/download/"
+    "occt-sdk-8.0.1/"
+)
+NETGEN_BASE = (
+    "https://github.com/precise-simulation/netgen-sdk/releases/download/"
+    "netgen-sdk-a4ddfe975002-r1/"
+)
+
+
 RELEASES = {
     "linux": {
         "occt": (
-            "https://github.com/precise-simulation/OCCT-sdk/releases/download/"
-            "occt-sdk-8.0.1/"
-            "opencascade-8.0.1-linux-x86_64-glibc2.17-shared-b8f597c67781.tar.gz",
+            OCCT_BASE
+            + "opencascade-8.0.1-linux-x86_64-glibc2.17-shared-b8f597c67781.tar.gz",
             "9410d0d7c3e4438d4a71ac751a09ab82bdb963fc8478d0d9635fee27292e3ebb",
         ),
         "netgen": (
-            "https://github.com/precise-simulation/netgen-sdk/releases/download/"
-            "netgen-sdk-a4ddfe975002-r1/"
-            "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            NETGEN_BASE
+            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
             "linux-x86_64-glibc2.17-gcc10.tar.gz",
             "25d5580d121e3fceca7796ed64323de5b2e5efa1a6e7d1fc1a918b89140937e7",
         ),
     },
+    "linux-static": {
+        "occt": (
+            OCCT_BASE
+            + "opencascade-8.0.1-linux-x86_64-glibc2.17-static-b8f597c67781.tar.gz",
+            "6089d212ee87589c41ed7818056e064c5fc6a1e75ed8463d5f266d8f18588815",
+        ),
+        "netgen": (
+            NETGEN_BASE
+            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            "linux-x86_64-glibc2.17-gcc10-static.tar.gz",
+            "e426ca5e2946f2899ffa4d8c51f3627ebb428ec6fa1127dbf37aaa1c72668b3b",
+        ),
+    },
     "macos-arm64": {
         "occt": (
-            "https://github.com/precise-simulation/OCCT-sdk/releases/download/"
-            "occt-sdk-8.0.1/"
-            "opencascade-8.0.1-macos13-arm64-shared-b8f597c67781.tar.gz",
+            OCCT_BASE
+            + "opencascade-8.0.1-macos13-arm64-shared-b8f597c67781.tar.gz",
             "05d428a7ce58703078af39e53d10e2b509f95eb743c7fb4531c8314b6779f46a",
         ),
         "netgen": (
-            "https://github.com/precise-simulation/netgen-sdk/releases/download/"
-            "netgen-sdk-a4ddfe975002-r1/"
-            "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            NETGEN_BASE
+            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
             "macos13-arm64-clang.tar.gz",
             "a9e406bd7d983b010cfe9478a237bcf61e2ee7a6973e5996d294b87ed9f6616f",
         ),
     },
+    "macos-arm64-static": {
+        "occt": (
+            OCCT_BASE
+            + "opencascade-8.0.1-macos13-arm64-static-b8f597c67781.tar.gz",
+            "5e622423378d3e9b0e9a4003d8f107829fe1c4accb8a2527b072cdb6514cf615",
+        ),
+        "netgen": (
+            NETGEN_BASE
+            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            "macos13-arm64-clang-static.tar.gz",
+            "575766344bd33a6047e8c77a66eed891e4e3bc220e87d5207a8c59361c4bcaef",
+        ),
+    },
+    "macos-x86_64": {
+        "occt": (
+            OCCT_BASE
+            + "opencascade-8.0.1-macos13-x86_64-shared-b8f597c67781.tar.gz",
+            "20c18138d5cee57949984e4247ef7f6bdbf5b41f821cc7e2cdc6f8fca454a1b2",
+        ),
+        "netgen": (
+            NETGEN_BASE
+            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            "macos13-x86_64-clang.tar.gz",
+            "01ca73c321b6b6e5721f449b5bc0bf48e5372531b2315bcdeeec599605418147",
+        ),
+    },
+    "macos-x86_64-static": {
+        "occt": (
+            OCCT_BASE
+            + "opencascade-8.0.1-macos13-x86_64-static-b8f597c67781.tar.gz",
+            "2af40d7a2389445fb2e2670c7ea533504b67b872ec0d00d0313bc20237b52f55",
+        ),
+        "netgen": (
+            NETGEN_BASE
+            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-"
+            "macos13-x86_64-clang-static.tar.gz",
+            "e1b60dfa3aaed3f91fb9c8e51e0955ab6f4348da485125907ce3bf888d13477d",
+        ),
+    },
     "windows": {
         "occt": (
-            "https://github.com/precise-simulation/OCCT-sdk/releases/download/"
-            "occt-sdk-8.0.1/"
-            "opencascade-8.0.1-windows-x86_64-vc143-shared-lean-b8f597c67781.zip",
+            OCCT_BASE
+            + "opencascade-8.0.1-windows-x86_64-vc143-shared-lean-b8f597c67781.zip",
             "160a15bc4134b4468693d1d61c5483774bf865b35da06093843aa69bbac97173",
         ),
         "netgen": (
-            "https://github.com/precise-simulation/netgen-sdk/releases/download/"
-            "netgen-sdk-a4ddfe975002-r1/"
-            "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-win64-msvc.zip",
+            NETGEN_BASE
+            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-win64-msvc.zip",
             "2da605814cd6ba105c4c2b9f66b95eb1b71024a2a4bb8428d10367779efe5d1b",
+        ),
+    },
+    "windows-static": {
+        "occt": (
+            OCCT_BASE
+            + "opencascade-8.0.1-windows-x86_64-vc143-static-lean-b8f597c67781.zip",
+            "7e0a80a971cfb3badf7a25cb2218a16fb61a196de52506537f21da6e044809f2",
+        ),
+        "netgen": (
+            NETGEN_BASE
+            + "netgen-featool-v6.2.2608-a4ddfe975002-occt8.0.1-win64-msvc-static.zip",
+            "3651161599acaac351d10fb4e224feadc9b90110c04383fbfc6875c34a5269cc",
         ),
     },
 }
@@ -78,7 +146,7 @@ def extract(archive: pathlib.Path, destination: pathlib.Path) -> pathlib.Path:
             package.extractall(destination)
     else:
         with tarfile.open(archive, "r:gz") as package:
-            package.extractall(destination)
+            package.extractall(destination, filter="fully_trusted")
 
     roots = [path for path in destination.iterdir() if path.is_dir()]
     files = [path for path in destination.iterdir() if path.is_file()]
@@ -121,7 +189,7 @@ def main() -> int:
     if args.platform == "windows":
         append(args.github_path, str(occt_root / "win64" / "vc14" / "bin"))
         append(args.github_path, str(netgen_root / "bin"))
-    else:
+    elif not args.platform.endswith("-static"):
         runtime = os.pathsep.join([str(occt_root / "lib"), str(netgen_root / "lib")])
         append(args.github_env, f"LD_LIBRARY_PATH={runtime}")
         append(args.github_env, f"DYLD_LIBRARY_PATH={runtime}")

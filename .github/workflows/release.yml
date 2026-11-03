@@ -1,0 +1,143 @@
+name: Release Geomtool
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  qualify:
+    uses: ./.github/workflows/native-release.yml
+
+  publish:
+    name: Publish qualified native release
+    needs: qualify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*-${{ github.sha }}
+          path: release-assets
+          merge-multiple: true
+
+      - name: Validate release candidate and artifact set
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(
+            python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("src/globals.hpp").read_text(encoding="utf-8")
+          match = re.search(r'^#define VERSION "([^"]+)"$', text, re.MULTILINE)
+          if not match:
+              raise SystemExit("src/globals.hpp lacks the VERSION definition")
+          print(match.group(1))
+          PY
+          )"
+          tag="v$version"
+
+          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF_NAME" != "$tag" ]]; then
+            echo "tag $GITHUB_REF_NAME does not match VERSION $version" >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "manual releases must be dispatched from main" >&2
+            exit 1
+          fi
+
+          expected=(
+            geomtool-win64-msvc-occt8.0.1-netgen6.2.2608.zip
+            geomtool-win64-msvc-occt8.0.1-netgen6.2.2608-instantmesh2d.zip
+            geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608.tar.gz
+            geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608-instantmesh2d.tar.gz
+            geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608.tar.gz
+            geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608-instantmesh2d.tar.gz
+            geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608.tar.gz
+            geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-instantmesh2d.tar.gz
+            geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608-static.tar.gz
+            geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608-static-instantmesh2d.tar.gz
+            geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608-static.tar.gz
+            geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608-static-instantmesh2d.tar.gz
+            geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-static.tar.gz
+            geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-static-instantmesh2d.tar.gz
+          )
+          for package in "${expected[@]}"; do
+            test -s "release-assets/$package"
+            test -s "release-assets/$package.sha256"
+            (
+              cd release-assets
+              sha256sum -c "$package.sha256"
+            )
+          done
+          package_count="$(find release-assets -maxdepth 1 -type f \( -name '*.zip' -o -name '*.tar.gz' \) | wc -l)"
+          test "$package_count" -eq "${#expected[@]}"
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          tag_exists=true
+          if ! gh api "/repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            tag_exists=false
+          fi
+          if [[ "$tag_exists" == false ]]; then
+            gh api --method POST \
+              "/repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$RELEASE_TAG" \
+              -f sha="$GITHUB_SHA" >/dev/null
+          fi
+
+          resolve_tag_commit() {
+            local object_type object_sha object_json
+            object_json="$(
+              gh api "/repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG"
+            )"
+            object_type="$(jq -r '.object.type' <<<"$object_json")"
+            object_sha="$(jq -r '.object.sha' <<<"$object_json")"
+            while [[ "$object_type" == tag ]]; do
+              object_json="$(
+                gh api "/repos/$GITHUB_REPOSITORY/git/tags/$object_sha"
+              )"
+              object_type="$(jq -r '.object.type' <<<"$object_json")"
+              object_sha="$(jq -r '.object.sha' <<<"$object_json")"
+            done
+            [[ "$object_type" == commit ]] || {
+              echo "unsupported tag object type: $object_type" >&2
+              return 1
+            }
+            printf '%s\n' "$object_sha"
+          }
+
+          remote_tag_sha="$(resolve_tag_commit)"
+          if [[ "$remote_tag_sha" != "$GITHUB_SHA" ]]; then
+            echo "$RELEASE_TAG resolves to $remote_tag_sha, expected $GITHUB_SHA" >&2
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release-assets/* \
+              --target "$GITHUB_SHA" \
+              --title "Geomtool $RELEASE_VERSION" \
+              --generate-notes
+          fi

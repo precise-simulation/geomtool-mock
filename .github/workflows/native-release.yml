@@ -1,0 +1,304 @@
+name: Native geomtool release qualification
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  PRODUCER_IMAGE: quay.io/pypa/manylinux2014_x86_64
+  PRODUCER_IMAGE_TAG: "2026.10.03-1"
+  PRODUCER_IMAGE_DIGEST: sha256:ffd6d1f11237599748657996b750db6b3a5b724fea5a81cd9ea65add4f45b6c9
+  CMAKE_VERSION: "3.31.6"
+
+jobs:
+  native:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: windows-shared
+            name: Windows x86_64 shared packages
+            runner: windows-2022
+            sdk: windows
+            platform: windows
+            static: "false"
+            package_base: geomtool-win64-msvc-occt8.0.1-netgen6.2.2608
+            extension: .zip
+          - id: linux-shared
+            name: Linux x86_64 shared packages
+            runner: ubuntu-24.04
+            sdk: linux
+            platform: linux
+            static: "false"
+            package_base: geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608
+            extension: .tar.gz
+          - id: macos-x86_64-shared
+            name: macOS x86_64 shared packages
+            runner: macos-15-intel
+            sdk: macos-x86_64
+            platform: macos
+            static: "false"
+            package_base: geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608
+            extension: .tar.gz
+          - id: macos-arm64-shared
+            name: macOS arm64 shared packages
+            runner: macos-15
+            sdk: macos-arm64
+            platform: macos
+            static: "false"
+            package_base: geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608
+            extension: .tar.gz
+          - id: linux-static
+            name: Linux x86_64 static packages
+            runner: ubuntu-24.04
+            sdk: linux-static
+            platform: linux
+            static: "true"
+            package_base: geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608-static
+            extension: .tar.gz
+          - id: macos-x86_64-static
+            name: macOS x86_64 static packages
+            runner: macos-15-intel
+            sdk: macos-x86_64-static
+            platform: macos
+            static: "true"
+            package_base: geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608-static
+            extension: .tar.gz
+          - id: macos-arm64-static
+            name: macOS arm64 static packages
+            runner: macos-15
+            sdk: macos-arm64-static
+            platform: macos
+            static: "true"
+            package_base: geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-static
+            extension: .tar.gz
+
+    steps:
+      - name: Check out release skeleton
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate release scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            scripts/fetch_sdks.py \
+            scripts/package_release.py \
+            scripts/verify_package.py \
+            tests/e2e.py
+
+      - name: Download and verify designated SDKs
+        id: sdk
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/fetch_sdks.py \
+            --platform "${{ matrix.sdk }}" \
+            --output "${{ runner.temp }}/geomtool-sdks" \
+            --github-output "$GITHUB_OUTPUT" \
+            --github-env "$GITHUB_ENV" \
+            --github-path "$GITHUB_PATH"
+
+      - name: Select Xcode 16.4
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          developer=/Applications/Xcode_16.4.app/Contents/Developer
+          test -d "$developer"
+          sudo xcode-select -s "$developer"
+          xcodebuild -version
+
+      - name: Build, package, and qualify Linux variants
+        if: matrix.platform == 'linux'
+        shell: bash
+        env:
+          OCCT_ROOT_HOST: ${{ steps.sdk.outputs.occt_root }}
+          NETGEN_DIR_HOST: ${{ steps.sdk.outputs.netgen_dir }}
+          PACKAGE_BASE: ${{ matrix.package_base }}
+          EXTENSION: ${{ matrix.extension }}
+          STATIC_BUILD: ${{ matrix.static }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/geomtool-native"
+          rm -rf "$work"
+          mkdir -p "$work/assets"
+
+          docker run --rm \
+            -e CMAKE_VERSION \
+            -e GITHUB_RUN_NUMBER \
+            -e PACKAGE_BASE \
+            -e EXTENSION \
+            -e STATIC_BUILD \
+            -v "$GITHUB_WORKSPACE:/source:ro" \
+            -v "$OCCT_ROOT_HOST:/deps/occt:ro" \
+            -v "$NETGEN_DIR_HOST:/deps/netgen:ro" \
+            -v "$work:/work" \
+            "$PRODUCER_IMAGE:$PRODUCER_IMAGE_TAG@$PRODUCER_IMAGE_DIGEST" \
+            bash -s <<'BASH'
+          set -euo pipefail
+          python_bin=/opt/python/cp312-cp312/bin/python
+          "$python_bin" -m pip install --disable-pip-version-check --quiet "cmake==$CMAKE_VERSION"
+          export PATH="/opt/python/cp312-cp312/bin:$PATH"
+
+          static_args=()
+          if [[ "$STATIC_BUILD" == true ]]; then
+            static_args+=(-DSTATIC=ON)
+          fi
+
+          build_variant() {
+            local variant="$1"
+            local instant="$2"
+            local build="/work/build-$variant"
+            local package="$PACKAGE_BASE"
+            if [[ "$variant" == combined ]]; then
+              package+="-instantmesh2d"
+            fi
+            package+="$EXTENSION"
+
+            cmake -S /source -B "$build" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0 \
+              -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+              '-DCMAKE_INSTALL_RPATH=$ORIGIN' \
+              -DCMAKE_EXE_LINKER_FLAGS=-Wl,--disable-new-dtags \
+              -DUSE_MESH=ON \
+              "-DUSE_INSTANTMESH2D=$instant" \
+              -DOCCT_ROOT=/deps/occt \
+              -DNETGEN_DIR=/deps/netgen \
+              "-DBUILDNO:STRING=26.11.$GITHUB_RUN_NUMBER" \
+              "${static_args[@]}"
+            cmake --build "$build" --parallel --target geomtool
+
+            if [[ "$STATIC_BUILD" == true ]]; then
+              "$python_bin" /source/tests/e2e.py \
+                --exe "$build/geomtool" --work "/work/e2e-$variant" --mesh
+            else
+              LD_LIBRARY_PATH=/deps/occt/lib:/deps/netgen/lib \
+                "$python_bin" /source/tests/e2e.py \
+                  --exe "$build/geomtool" --work "/work/e2e-$variant" --mesh
+            fi
+
+            package_args=()
+            if [[ "$STATIC_BUILD" == true ]]; then
+              package_args+=(--static)
+            fi
+            "$python_bin" /source/scripts/package_release.py \
+              --exe "$build/geomtool" \
+              --platform linux \
+              --occt-root /deps/occt \
+              --netgen-dir /deps/netgen \
+              --output /work/assets \
+              --package-name "$package" \
+              "${package_args[@]}"
+            "$python_bin" /source/scripts/verify_package.py \
+              --archive "/work/assets/$package" \
+              --work "/work/verify-$variant" \
+              --mesh
+          }
+
+          build_variant netgen OFF
+          build_variant combined ON
+          BASH
+
+      - name: Build, package, and qualify Windows/macOS variants
+        if: matrix.platform != 'linux'
+        shell: bash
+        env:
+          OCCT_ROOT: ${{ steps.sdk.outputs.occt_root }}
+          NETGEN_DIR: ${{ steps.sdk.outputs.netgen_dir }}
+          PACKAGE_BASE: ${{ matrix.package_base }}
+          EXTENSION: ${{ matrix.extension }}
+          STATIC_BUILD: ${{ matrix.static }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
+        run: |
+          set -euo pipefail
+          assets="$RUNNER_TEMP/geomtool-native/assets"
+          rm -rf "$RUNNER_TEMP/geomtool-native"
+          mkdir -p "$assets"
+
+          static_args=()
+          if [[ "$STATIC_BUILD" == true ]]; then
+            static_args+=(-DSTATIC=ON)
+          fi
+          rpath_args=()
+          if [[ "$TARGET_PLATFORM" == macos && "$STATIC_BUILD" != true ]]; then
+            rpath_args+=(
+              -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+              '-DCMAKE_INSTALL_RPATH=@loader_path'
+            )
+          fi
+
+          build_variant() {
+            local variant="$1"
+            local instant="$2"
+            local build="$RUNNER_TEMP/geomtool-native/build-$variant"
+            local package="$PACKAGE_BASE"
+            if [[ "$variant" == combined ]]; then
+              package+="-instantmesh2d"
+            fi
+            package+="$EXTENSION"
+
+            cmake -S . -B "$build" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DUSE_MESH=ON \
+              "-DUSE_INSTANTMESH2D=$instant" \
+              "-DOCCT_ROOT=$OCCT_ROOT" \
+              "-DNETGEN_DIR=$NETGEN_DIR" \
+              "-DBUILDNO:STRING=26.11.$GITHUB_RUN_NUMBER" \
+              "${static_args[@]}" \
+              "${rpath_args[@]}"
+            cmake --build "$build" --config Release --parallel --target geomtool
+            ctest --test-dir "$build" -C Release --output-on-failure
+
+            if [[ "$TARGET_PLATFORM" == windows ]]; then
+              exe="$build/Release/geomtool.exe"
+            else
+              exe="$build/geomtool"
+            fi
+            test -f "$exe"
+
+            package_args=()
+            if [[ "$STATIC_BUILD" == true ]]; then
+              package_args+=(--static)
+            fi
+            python scripts/package_release.py \
+              --exe "$exe" \
+              --platform "$TARGET_PLATFORM" \
+              --occt-root "$OCCT_ROOT" \
+              --netgen-dir "$NETGEN_DIR" \
+              --output "$assets" \
+              --package-name "$package" \
+              "${package_args[@]}"
+            python scripts/verify_package.py \
+              --archive "$assets/$package" \
+              --work "$RUNNER_TEMP/geomtool-native/verify-$variant" \
+              --mesh
+          }
+
+          build_variant netgen OFF
+          build_variant combined ON
+
+      - name: Upload qualified packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.id }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/geomtool-native/assets/*
+          if-no-files-found: error
+          retention-days: 14
