@@ -63,7 +63,8 @@ endforeach()
 
 add_executable(geomtool src/main.cpp)
 target_compile_definitions(geomtool PRIVATE
-  OCCGEOMETRY)
+  OCCGEOMETRY
+  GEOMTOOL_MOCK_NETGEN_VERSION="${NETGEN_VERSION}")
 target_include_directories(geomtool PRIVATE "${_occt_include_dir}")
 target_link_libraries(geomtool PRIVATE
   nglib

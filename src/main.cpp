@@ -6,9 +6,6 @@
 #include <TopoDS_Shape.hxx>
 #include <gp_Pnt.hxx>
 
-#include <map>
-#include <core/version.hpp>
-
 namespace nglib
 {
 #include <nglib.h>
@@ -88,7 +85,7 @@ int command_version()
 {
   std::cout << "geomtool mock\n";
   std::cout << "OCCT " << OCC_VERSION_COMPLETE << "\n";
-  std::cout << "Netgen " << ngcore::GetLibraryVersion("netgen").to_string() << "\n";
+  std::cout << "Netgen v" << GEOMTOOL_MOCK_NETGEN_VERSION << "\n";
   return 0;
 }
 
