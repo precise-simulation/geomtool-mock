@@ -2,7 +2,19 @@ name: Native geomtool release qualification
 
 on:
   workflow_call:
+    inputs:
+      netgen_release:
+        description: Immutable precise-simulation/netgen-sdk release to qualify
+        required: false
+        type: string
+        default: netgen-sdk-2acc7e8443a4-r1
   workflow_dispatch:
+    inputs:
+      netgen_release:
+        description: Immutable precise-simulation/netgen-sdk release to qualify
+        required: false
+        type: string
+        default: netgen-sdk-2acc7e8443a4-r1
   pull_request:
 
 permissions:
@@ -72,10 +84,14 @@ jobs:
       - name: Download and verify designated SDKs
         id: sdk
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NETGEN_RELEASE: ${{ inputs.netgen_release || 'netgen-sdk-2acc7e8443a4-r1' }}
         run: |
           set -euo pipefail
           python scripts/fetch_sdks.py \
             --platform "${{ matrix.sdk }}" \
+            --netgen-release "$NETGEN_RELEASE" \
             --output "${{ runner.temp }}/geomtool-sdks" \
             --github-output "$GITHUB_OUTPUT" \
             --github-env "$GITHUB_ENV" \

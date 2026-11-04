@@ -7,10 +7,14 @@ tree can replace the mock source tree without changing the release machinery.
 
 The designated binary SDK producers are:
 
-- `precise-simulation/OCCT-sdk` release `occt-sdk-8.0.1`
-- `precise-simulation/netgen-sdk` release `netgen-sdk-2acc7e8443a4-r1`
+- `precise-simulation/OCCT-sdk`
+- `precise-simulation/netgen-sdk`
 
-All SDK archives are pinned by SHA-256 in `scripts/fetch_sdks.py`.
+Normal pull-request and manual qualification defaults to the known-good
+`netgen-sdk-2acc7e8443a4-r1` baseline. The exact OCCT SDK release is read from
+that Netgen SDK release's `.github/occt-sdk-release.txt` pin. SDK archives are
+resolved from their published immutable GitHub Releases and verified against
+GitHub's SHA-256 digest and asset size before extraction.
 
 ## Drop-in source contract
 
@@ -80,7 +84,8 @@ OCCT static consumer definitions and required Windows system libraries.
 
 Every job:
 
-1. downloads and SHA-256 verifies the designated SDK archives;
+1. resolves the Netgen SDK release and its exact paired OCCT SDK release, then
+   downloads and verifies the designated SDK archives;
 2. builds Netgen-only and combined `geomtool` executables;
 3. executes the build-tree binary;
 4. creates a deterministic `.zip` or `.tar.gz` plus `.sha256`;
@@ -101,6 +106,22 @@ publishing it. Test tags are unique per run and attempt, with the form
 `v<VERSION>` tag or marks a test release as latest. An existing release is not
 overwritten. Pull requests continue to run native qualification without
 publishing, and the native workflow can also be dispatched independently.
+
+`.github/workflows/sdk-canary.yml` is the downstream SDK compatibility canary.
+Every six hours, after the Netgen SDK repository's own scheduled OCCT update
+check, it selects the newest published immutable `netgen-sdk-*` release. That
+release determines the exact OCCT SDK pair. A full native qualification runs
+only when that Netgen SDK release has not already passed the scheduled canary;
+success is recorded by a `canary-netgen-sdk-*` tag in this repository.
+
+The canary can also be dispatched manually from any selected branch. Its
+optional `netgen_release` input selects an exact immutable Netgen SDK release;
+an empty value selects the newest release. Manual canary runs always execute and
+do not create or update scheduled-canary marker tags, so they can be used to
+test Geomtool/mock changes independently of dependency releases. The reusable
+**Native geomtool release qualification** workflow is also directly
+dispatchable with the same optional Netgen SDK release selection; its default
+remains the known-good baseline used by pull requests and normal mock changes.
 
 No CircleCI configuration is used.
 
@@ -123,6 +144,16 @@ To fetch the exact SDK pair used by one CI matrix entry:
 
 ```sh
 python3 scripts/fetch_sdks.py --platform linux --output .deps
+```
+
+To select another immutable Netgen SDK release (with its paired OCCT SDK derived
+automatically):
+
+```sh
+python3 scripts/fetch_sdks.py \
+  --platform linux \
+  --netgen-release netgen-sdk-<source>-r1 \
+  --output .deps
 ```
 
 Supported keys are `windows`, `linux`, `macos-x86_64`,

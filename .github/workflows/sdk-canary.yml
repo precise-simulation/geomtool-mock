@@ -1,0 +1,139 @@
+name: Netgen SDK compatibility canary
+
+on:
+  schedule:
+    - cron: '47 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      netgen_release:
+        description: Optional exact immutable Netgen SDK release; empty selects the newest release
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: netgen-sdk-canary-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve Netgen and OCCT SDK pair
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.resolve.outputs.should_run }}
+      netgen_release: ${{ steps.resolve.outputs.netgen_release }}
+      occt_release: ${{ steps.resolve.outputs.occt_release }}
+      marker_tag: ${{ steps.resolve.outputs.marker_tag }}
+    steps:
+      - name: Resolve newest compatible SDK pair
+        id: resolve
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RELEASE: ${{ inputs.netgen_release || '' }}
+        run: |
+          set -euo pipefail
+          repository=precise-simulation/netgen-sdk
+
+          if [[ -n "$REQUESTED_RELEASE" ]]; then
+            release_json="$(gh api "repos/$repository/releases/tags/$REQUESTED_RELEASE")"
+          else
+            release_json="$(
+              gh api --paginate "repos/$repository/releases?per_page=100" |
+                jq -s '
+                  add |
+                  map(select(
+                    .draft == false and
+                    .prerelease == false and
+                    .immutable == true and
+                    (.tag_name | startswith("netgen-sdk-"))
+                  )) |
+                  sort_by(.published_at) |
+                  last
+                '
+            )"
+          fi
+
+          if ! jq -e '
+            .draft == false and
+            .prerelease == false and
+            .immutable == true and
+            (.tag_name | startswith("netgen-sdk-"))
+          ' >/dev/null <<<"$release_json"; then
+            echo "selected Netgen SDK release is not a published immutable release" >&2
+            exit 1
+          fi
+
+          netgen_release="$(jq -r '.tag_name' <<<"$release_json")"
+          occt_release="$(
+            gh api "repos/$repository/contents/.github/occt-sdk-release.txt?ref=$netgen_release" \
+              --jq '.content' |
+              base64 --decode |
+              tr -d '\r\n'
+          )"
+          [[ "$occt_release" == occt-sdk-* ]] || {
+            echo "$netgen_release has invalid OCCT SDK pin: $occt_release" >&2
+            exit 1
+          }
+
+          occt_json="$(gh api "repos/precise-simulation/OCCT-sdk/releases/tags/$occt_release")"
+          jq -e '
+            .draft == false and
+            .prerelease == false and
+            .immutable == true
+          ' >/dev/null <<<"$occt_json" || {
+            echo "$occt_release is not a published immutable OCCT SDK release" >&2
+            exit 1
+          }
+
+          marker_tag="canary-$netgen_release"
+          should_run=true
+          if [[ "$GITHUB_EVENT_NAME" == schedule ]] &&
+             gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$marker_tag" >/dev/null 2>&1; then
+            should_run=false
+          fi
+
+          echo "netgen_release=$netgen_release" >> "$GITHUB_OUTPUT"
+          echo "occt_release=$occt_release" >> "$GITHUB_OUTPUT"
+          echo "marker_tag=$marker_tag" >> "$GITHUB_OUTPUT"
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Netgen SDK compatibility canary"
+            echo
+            echo "- Netgen SDK: \`$netgen_release\`"
+            echo "- OCCT SDK: \`$occt_release\`"
+            echo "- Scheduled qualification required: \`$should_run\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  qualify:
+    if: needs.resolve.outputs.should_run == 'true'
+    needs: resolve
+    uses: ./.github/workflows/native-release.yml
+    with:
+      netgen_release: ${{ needs.resolve.outputs.netgen_release }}
+
+  record:
+    name: Record successful scheduled canary
+    if: github.event_name == 'schedule' && needs.resolve.outputs.should_run == 'true' && needs.qualify.result == 'success'
+    needs:
+      - resolve
+      - qualify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create canary marker tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MARKER_TAG: ${{ needs.resolve.outputs.marker_tag }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$MARKER_TAG" >/dev/null 2>&1; then
+            exit 0
+          fi
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$MARKER_TAG" \
+            -f sha="$GITHUB_SHA" >/dev/null
