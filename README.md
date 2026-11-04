@@ -1,9 +1,10 @@
-# Geomtool release skeleton
+# Geomtool SDK compatibility canary
 
-This repository is a source-independent build and release skeleton for
-Geomtool. It intentionally does not contain the real Geomtool implementation,
-but it mirrors the native build boundary closely enough that the real source
-tree can replace the mock source tree without changing the release machinery.
+This repository is a native SDK compatibility canary and release-contract test
+fixture for Geomtool. It intentionally does not contain the real Geomtool
+implementation. Instead, it exercises the same OCCT/Netgen integration boundary,
+native platform matrix, packaging shape, and staged-package checks used to detect
+dependency or release-contract regressions before they reach production Geomtool.
 
 The designated binary SDK producers are:
 
@@ -108,8 +109,10 @@ overwritten. Pull requests continue to run native qualification without
 publishing, and the native workflow can also be dispatched independently.
 
 `.github/workflows/sdk-canary.yml` is the downstream SDK compatibility canary.
-Every six hours, after the Netgen SDK repository's own scheduled OCCT update
-check, it selects the newest published immutable `netgen-sdk-*` release. That
+Every six hours it checks for the newest published immutable `netgen-sdk-*`
+release. Its schedule is offset from the Netgen SDK repository's own periodic
+OCCT update check, but there is no cross-repository ordering guarantee; if a
+Netgen rebuild finishes later, the following canary poll detects it. The Netgen
 release determines the exact OCCT SDK pair. A full native qualification runs
 only when that Netgen SDK release has not already passed the scheduled canary;
 success is recorded by a `canary-netgen-sdk-*` tag in this repository.

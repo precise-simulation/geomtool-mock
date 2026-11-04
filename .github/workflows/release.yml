@@ -2,9 +2,6 @@ name: Test Geomtool release publication
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: write

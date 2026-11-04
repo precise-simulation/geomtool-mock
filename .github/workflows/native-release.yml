@@ -63,7 +63,7 @@ jobs:
       matrix: ${{ fromJSON(needs.matrix.outputs.native) }}
 
     steps:
-      - name: Check out release skeleton
+      - name: Check out compatibility fixture
         uses: actions/checkout@v4
 
       - name: Set up Python
