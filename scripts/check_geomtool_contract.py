@@ -4,24 +4,11 @@ import json
 import pathlib
 import re
 import sys
-import urllib.request
-
-
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DEFAULT_CONTRACT = (
-    "https://raw.githubusercontent.com/precise-simulation/geomtool/"
-    "main/.github/native-contract.json"
-)
+DEFAULT_CONTRACT = ROOT / ".github" / "geomtool-native-contract.json"
 
 
 def load_contract(source: str) -> dict:
-    if source.startswith(("https://", "http://")):
-        request = urllib.request.Request(
-            source,
-            headers={"Accept": "application/vnd.github.raw+json"},
-        )
-        with urllib.request.urlopen(request) as response:
-            return json.load(response)
     return json.loads(pathlib.Path(source).read_text(encoding="utf-8-sig"))
 
 
@@ -55,7 +42,7 @@ def expected_runner(contract: dict, entry: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--contract", default=DEFAULT_CONTRACT)
+    parser.add_argument("--contract", default=str(DEFAULT_CONTRACT))
     args = parser.parse_args()
 
     contract = load_contract(args.contract)

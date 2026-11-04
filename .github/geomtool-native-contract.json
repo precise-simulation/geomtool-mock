@@ -1,0 +1,168 @@
+{
+  "schema": 1,
+  "owner": "precise-simulation/geomtool",
+  "cmake": {
+    "minimum_version": "3.21",
+    "cxx_standard": 20,
+    "msvc_runtime": "MultiThreadedDLL",
+    "linkage": {
+      "shared_occt": "explicit_library_files",
+      "static_windows_occt": "package_library_list",
+      "static_unix_occt": "explicit_imported_targets",
+      "static_netgen": "whole_archive_nglib"
+    },
+    "inputs": [
+      "USE_MESH",
+      "USE_INSTANTMESH2D",
+      "STATIC",
+      "BUILDNO",
+      "OCCT_ROOT",
+      "NETGEN_DIR",
+      "OCC_INC_DIR",
+      "OCC_LIB_DIR",
+      "OpenCASCADE_DIR"
+    ],
+    "occt_libraries": [
+      "TKDESTEP",
+      "TKDEIGES",
+      "TKDESTL",
+      "TKDE",
+      "TKXCAF",
+      "TKVCAF",
+      "TKV3d",
+      "TKService",
+      "TKLCAF",
+      "TKHLR",
+      "TKCDF",
+      "TKCAF",
+      "TKXSBase",
+      "TKMesh",
+      "TKOffset",
+      "TKFillet",
+      "TKBool",
+      "TKBO",
+      "TKShHealing",
+      "TKPrim",
+      "TKTopAlgo",
+      "TKGeomAlgo",
+      "TKBRep",
+      "TKGeomBase",
+      "TKG3d",
+      "TKG2d",
+      "TKMath",
+      "TKernel"
+    ]
+  },
+  "source_manifests": {
+    "src/sources.cmake": [
+      "GEOMTOOL_BASE_SOURCES",
+      "GEOMTOOL_MESH_SOURCES",
+      "GEOMTOOL_NETGEN_SOURCES",
+      "GEOMTOOL_INSTANTMESH2D_SOURCES"
+    ],
+    "third_party/instantmesh2d/sources.cmake": [
+      "GEOMTOOL_INSTANTMESH2D_CORE_SOURCES"
+    ]
+  },
+  "sdk_baseline": {
+    "occt_release": "occt-sdk-8.0.1",
+    "occt_commit": "b8f597c677811d1f9f4d8a97f5ae2825c0353a42",
+    "netgen_release": "netgen-sdk-2acc7e8443a4-r1",
+    "netgen_commit": "2acc7e8443a42d837c04944e42be761af8bb0e78"
+  },
+  "toolchains": {
+    "windows": {
+      "runner": "windows-2022"
+    },
+    "linux": {
+      "runner": "ubuntu-24.04",
+      "producer_image": "quay.io/pypa/manylinux2014_x86_64",
+      "producer_image_tag": "2026.10.03-1",
+      "producer_image_digest": "sha256:ffd6d1f11237599748657996b750db6b3a5b724fea5a81cd9ea65add4f45b6c9",
+      "cmake_version": "3.31.6",
+      "glibcxx_cxx11_abi": "0"
+    },
+    "macos": {
+      "x86_64_runner": "macos-15-intel",
+      "arm64_runner": "macos-15",
+      "deployment_target": "13.0",
+      "xcode_version": "16.4"
+    }
+  },
+  "matrix": {
+    "include": [
+      {
+        "id": "windows-shared",
+        "runner": "windows-2022",
+        "platform": "windows",
+        "arch": "x86_64",
+        "static": "false",
+        "package_base": "geomtool-win64-msvc-occt8.0.1-netgen6.2.2608",
+        "extension": ".zip"
+      },
+      {
+        "id": "windows-static",
+        "runner": "windows-2022",
+        "platform": "windows",
+        "arch": "x86_64",
+        "static": "true",
+        "package_base": "geomtool-win64-msvc-occt8.0.1-netgen6.2.2608-static",
+        "extension": ".zip"
+      },
+      {
+        "id": "linux-shared",
+        "runner": "ubuntu-24.04",
+        "platform": "linux",
+        "arch": "x86_64",
+        "static": "false",
+        "package_base": "geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608",
+        "extension": ".tar.gz"
+      },
+      {
+        "id": "macos-x86_64-shared",
+        "runner": "macos-15-intel",
+        "platform": "macos",
+        "arch": "x86_64",
+        "static": "false",
+        "package_base": "geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608",
+        "extension": ".tar.gz"
+      },
+      {
+        "id": "macos-arm64-shared",
+        "runner": "macos-15",
+        "platform": "macos",
+        "arch": "arm64",
+        "static": "false",
+        "package_base": "geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608",
+        "extension": ".tar.gz"
+      },
+      {
+        "id": "linux-static",
+        "runner": "ubuntu-24.04",
+        "platform": "linux",
+        "arch": "x86_64",
+        "static": "true",
+        "package_base": "geomtool-linux-x86_64-glibc2.17-gcc10-occt8.0.1-netgen6.2.2608-static",
+        "extension": ".tar.gz"
+      },
+      {
+        "id": "macos-x86_64-static",
+        "runner": "macos-15-intel",
+        "platform": "macos",
+        "arch": "x86_64",
+        "static": "true",
+        "package_base": "geomtool-macos13-x86_64-occt8.0.1-netgen6.2.2608-static",
+        "extension": ".tar.gz"
+      },
+      {
+        "id": "macos-arm64-static",
+        "runner": "macos-15",
+        "platform": "macos",
+        "arch": "arm64",
+        "static": "true",
+        "package_base": "geomtool-macos13-arm64-occt8.0.1-netgen6.2.2608-static",
+        "extension": ".tar.gz"
+      }
+    ]
+  }
+}

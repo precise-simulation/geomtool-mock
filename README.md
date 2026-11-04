@@ -20,11 +20,14 @@ GitHub's SHA-256 digest and asset size before extraction.
 ## Shared native contract
 
 `src/sources.cmake` and `third_party/instantmesh2d/sources.cmake` own the native
-source graph. Production Geomtool owns the machine-readable shared contract in
-`.github/native-contract.json`; `scripts/check_geomtool_contract.py` reads the
-current `precise-simulation/geomtool` `main` contract and verifies that this
-fixture still matches it. `CMakeLists.txt` consumes the manifests with the same
-dependency/linkage behavior and build switches as full Geomtool:
+source graph. Production Geomtool owns the authoritative machine-readable shared
+contract in `.github/native-contract.json`. Because production Geomtool is
+private while this canary repository is public, this repository carries a
+synchronized public snapshot at `.github/geomtool-native-contract.json` rather
+than requiring a private-repository token. `scripts/check_geomtool_contract.py`
+verifies that this fixture matches that snapshot. `CMakeLists.txt` consumes the
+manifests with the same dependency/linkage behavior and build switches as full
+Geomtool:
 
 - base sources: `export.cpp`, `geom.cpp`, `geom_ops.cpp`,
   `geom_util.cpp`, `gobj.cpp`, `import.cpp`, `main.cpp`,
@@ -145,18 +148,19 @@ remain Geomtool-only. The mock should not copy those mechanisms merely to look
 similar.
 
 Native qualification runs `scripts/check_geomtool_contract.py` before loading
-the matrix, so drift from current production `main` fails early. For paired
-changes that are still local, validate against a sibling Geomtool checkout:
+the matrix, so drift from the synchronized contract snapshot fails early. For
+paired changes that are still local, validate directly against the authoritative
+sibling Geomtool checkout:
 
 ```sh
 python3 scripts/check_geomtool_contract.py \
   --contract ../precise-simulation_geomtool/.github/native-contract.json
 ```
 
-After local validation, land the Geomtool contract/production change first and
-the dependent mock change immediately afterward. Hosted mock qualification
-intentionally checks current `geomtool/main` rather than carrying a second
-contract copy in this repository.
+After local validation, land the Geomtool contract/production change first, then
+update this snapshot and the dependent mock change immediately afterward.
+Geomtool's scheduled/manual native-contract sync check verifies that the public
+snapshot has caught up with the authoritative private contract.
 
 No CircleCI configuration is used.
 
