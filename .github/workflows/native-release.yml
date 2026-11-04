@@ -35,6 +35,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate production Geomtool native contract
+        run: python3 scripts/check_geomtool_contract.py
+
       - name: Load release contract
         id: matrix
         shell: bash
@@ -76,6 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile \
+            scripts/check_geomtool_contract.py \
             scripts/fetch_sdks.py \
             scripts/package_release.py \
             scripts/verify_package.py \

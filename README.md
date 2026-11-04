@@ -17,11 +17,14 @@ that Netgen SDK release's `.github/occt-sdk-release.txt` pin. SDK archives are
 resolved from their published immutable GitHub Releases and verified against
 GitHub's SHA-256 digest and asset size before extraction.
 
-## Drop-in source contract
+## Shared native contract
 
 `src/sources.cmake` and `third_party/instantmesh2d/sources.cmake` own the native
-source graph. `CMakeLists.txt` consumes those manifests with the same build
-switches as full Geomtool:
+source graph. Production Geomtool owns the machine-readable shared contract in
+`.github/native-contract.json`; `scripts/check_geomtool_contract.py` reads the
+current `precise-simulation/geomtool` `main` contract and verifies that this
+fixture still matches it. `CMakeLists.txt` consumes the manifests with the same
+dependency/linkage behavior and build switches as full Geomtool:
 
 - base sources: `export.cpp`, `geom.cpp`, `geom_ops.cpp`,
   `geom_util.cpp`, `gobj.cpp`, `import.cpp`, `main.cpp`,
@@ -33,25 +36,22 @@ switches as full Geomtool:
   `OCCT_ROOT`, `NETGEN_DIR`, `OCC_INC_DIR`, `OCC_LIB_DIR`, and
   `OpenCASCADE_DIR`
 
-The replacement source tree must preserve the manifest interface used by
-top-level CMake. `src/sources.cmake` defines `GEOMTOOL_BASE_SOURCES`,
+The shared manifest interface used by top-level CMake is part of the contract.
+`src/sources.cmake` defines `GEOMTOOL_BASE_SOURCES`,
 `GEOMTOOL_MESH_SOURCES`, `GEOMTOOL_NETGEN_SOURCES`, and
 `GEOMTOOL_INSTANTMESH2D_SOURCES`; `third_party/instantmesh2d/sources.cmake`
-defines `GEOMTOOL_INSTANTMESH2D_CORE_SOURCES`. The listed files may change when
-the real source is dropped in, but those variables remain the build boundary.
+defines `GEOMTOOL_INSTANTMESH2D_CORE_SOURCES`.
 
-Release publication also reads the product version directly from
-`src/globals.hpp`. The replacement tree must keep an exact, unindented
+Manual test-release publication also reads the product version directly from
+`src/globals.hpp`. The fixture keeps an exact, unindented
 definition of the form `#define VERSION "<version>"` on its own line. The
 version string is used to construct test release tags.
 
 The mock files under `src/` and `third_party/instantmesh2d/` exist only to
-exercise that contract. Replacing those directories with the corresponding
-real Geomtool source directories also replaces the authoritative source
-manifests; CI, top-level CMake, and packaging should not need source-specific
-edits.
+exercise the integration contract; they are not intended to mirror Geomtool's
+implementation or semantic qualification suite.
 
-The replacement executable must preserve the three integration behaviors used
+The fixture executable preserves the three integration behaviors used
 by `tests/e2e.py` and package qualification:
 
 - `geomtool ver -v 1` exits successfully and prints nonempty version output;
@@ -97,8 +97,8 @@ Shared packages contain the executable and SDK runtime libraries at archive
 root. Static packages contain the executable only. Runtime packages reject
 development headers and static/import libraries during verification.
 
-`.github/workflows/release.yml` runs on each push to `main` or a manual
-dispatch from `main`. It invokes the complete native qualification matrix,
+`.github/workflows/release.yml` is manual-only. A dispatch from `main` invokes
+the complete native qualification matrix,
 checks the exact package set derived from `.github/native-release-matrix.json`
 and every SHA-256 sidecar, then creates
 a draft GitHub prerelease and verifies the uploaded files byte-for-byte before
@@ -125,6 +125,38 @@ test Geomtool/mock changes independently of dependency releases. The reusable
 **Native geomtool release qualification** workflow is also directly
 dispatchable with the same optional Netgen SDK release selection; its default
 remains the known-good baseline used by pull requests and normal mock changes.
+
+## Alignment with production Geomtool
+
+Changes are expected in both repositories only when they cross the shared
+native compatibility contract. Paired updates are required for:
+
+- CMake dependency/linkage behavior or the shared CMake inputs;
+- the explicit OCCT toolkit closure;
+- the shared source-manifest variable interface (ordinary source-file membership
+  remains repository-local);
+- the committed OCCT/Netgen SDK baseline used by normal qualification;
+- represented Windows/Linux/macOS runner and toolchain baselines; or
+- package names, platform/architecture coverage, and shared/static variants.
+
+Ordinary Geomtool source behavior, detailed production semantic qualification,
+release orchestration, publication rules, and production-only runtime consumers
+remain Geomtool-only. The mock should not copy those mechanisms merely to look
+similar.
+
+Native qualification runs `scripts/check_geomtool_contract.py` before loading
+the matrix, so drift from current production `main` fails early. For paired
+changes that are still local, validate against a sibling Geomtool checkout:
+
+```sh
+python3 scripts/check_geomtool_contract.py \
+  --contract ../precise-simulation_geomtool/.github/native-contract.json
+```
+
+After local validation, land the Geomtool contract/production change first and
+the dependent mock change immediately afterward. Hosted mock qualification
+intentionally checks current `geomtool/main` rather than carrying a second
+contract copy in this repository.
 
 No CircleCI configuration is used.
 

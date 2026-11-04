@@ -120,23 +120,63 @@ endif()
 
 set(SRCDIR "${PROJECT_SOURCE_DIR}/src")
 set(INSTANTMESH2D_DIR "${PROJECT_SOURCE_DIR}/third_party/instantmesh2d")
+set(OCC_LIBS
+  TKDESTEP
+  TKDEIGES
+  TKDESTL
+  TKDE
+  TKXCAF
+  TKVCAF
+  TKV3d
+  TKService
+  TKLCAF
+  TKHLR
+  TKCDF
+  TKCAF
+  TKXSBase
+  TKMesh
+  TKOffset
+  TKFillet
+  TKBool
+  TKBO
+  TKShHealing
+  TKPrim
+  TKTopAlgo
+  TKGeomAlgo
+  TKBRep
+  TKGeomBase
+  TKG3d
+  TKG2d
+  TKMath
+  TKernel
+  )
+
+set(OCC_LIBRARIES)
 set(OCC_SYSTEM_LIBRARIES)
-find_package(OpenCASCADE CONFIG REQUIRED
-  PATHS "${OpenCASCADE_DIR}"
-  NO_DEFAULT_PATH)
-set(OCC_LIBRARIES ${OpenCASCADE_LIBRARIES})
-if(NOT OCC_LIBRARIES)
-  message(FATAL_ERROR "OpenCASCADE package did not define OpenCASCADE_LIBRARIES")
-endif()
-foreach(_occt_target IN LISTS OCC_LIBRARIES)
-  if(NOT TARGET ${_occt_target})
-    message(FATAL_ERROR
-      "OpenCASCADE package listed unavailable target ${_occt_target}")
-  endif()
-endforeach()
 if(STATIC AND WIN32)
+  find_package(OpenCASCADE CONFIG REQUIRED
+    PATHS "${OpenCASCADE_DIR}"
+    NO_DEFAULT_PATH)
+  set(OCC_LIBRARIES ${OpenCASCADE_LIBRARIES})
   set(OCC_SYSTEM_LIBRARIES
     advapi32 gdi32 user32 wsock32 psapi windowscodecs winmm)
+elseif(STATIC)
+  find_package(OpenCASCADE CONFIG REQUIRED
+    PATHS "${OpenCASCADE_DIR}"
+    NO_DEFAULT_PATH)
+  foreach(libname IN LISTS OCC_LIBS)
+    if(NOT TARGET ${libname})
+      message(FATAL_ERROR "OpenCASCADE package did not define required target ${libname}")
+    endif()
+    list(APPEND OCC_LIBRARIES ${libname})
+  endforeach()
+else()
+  foreach(libname IN LISTS OCC_LIBS)
+    find_library(OCC_LIBRARY_${libname} NAMES ${libname}
+      PATHS "${OCC_LIB_DIR}" NO_DEFAULT_PATH REQUIRED)
+    assert_in_occt_root("OCCT library ${libname}" "${OCC_LIBRARY_${libname}}")
+    list(APPEND OCC_LIBRARIES "${OCC_LIBRARY_${libname}}")
+  endforeach()
 endif()
 
 if(USE_MESH)
