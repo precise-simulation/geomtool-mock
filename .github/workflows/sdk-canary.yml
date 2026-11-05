@@ -37,11 +37,39 @@ jobs:
           set -euo pipefail
           repository=precise-simulation/netgen-sdk
 
+          gh_api_retry() {
+            local attempt=1
+            local max_attempts=4
+            local delay=5
+            local error_file="$RUNNER_TEMP/gh-api-error"
+            local output
+
+            while true; do
+              if output="$(gh api "$@" 2>"$error_file")"; then
+                rm -f "$error_file"
+                printf '%s\n' "$output"
+                return 0
+              fi
+
+              if (( attempt >= max_attempts )); then
+                cat "$error_file" >&2
+                rm -f "$error_file"
+                return 1
+              fi
+
+              echo "GitHub API request failed (attempt $attempt/$max_attempts); retrying in ${delay}s" >&2
+              cat "$error_file" >&2
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+
           if [[ -n "$REQUESTED_RELEASE" ]]; then
-            release_json="$(gh api "repos/$repository/releases/tags/$REQUESTED_RELEASE")"
+            release_json="$(gh_api_retry "repos/$repository/releases/tags/$REQUESTED_RELEASE")"
           else
             release_json="$(
-              gh api --paginate "repos/$repository/releases?per_page=100" |
+              gh_api_retry --paginate "repos/$repository/releases?per_page=100" |
                 jq -s '
                   add |
                   map(select(
@@ -68,7 +96,7 @@ jobs:
 
           netgen_release="$(jq -r '.tag_name' <<<"$release_json")"
           occt_release="$(
-            gh api "repos/$repository/contents/.github/occt-sdk-release.txt?ref=$netgen_release" \
+            gh_api_retry "repos/$repository/contents/.github/occt-sdk-release.txt?ref=$netgen_release" \
               --jq '.content' |
               base64 --decode |
               tr -d '\r\n'
@@ -78,7 +106,7 @@ jobs:
             exit 1
           }
 
-          occt_json="$(gh api "repos/precise-simulation/OCCT-sdk/releases/tags/$occt_release")"
+          occt_json="$(gh_api_retry "repos/precise-simulation/OCCT-sdk/releases/tags/$occt_release")"
           jq -e '
             .draft == false and
             .prerelease == false and
@@ -133,7 +161,42 @@ jobs:
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$MARKER_TAG" >/dev/null 2>&1; then
             exit 0
           fi
-          gh api --method POST \
-            "repos/$GITHUB_REPOSITORY/git/refs" \
-            -f ref="refs/tags/$MARKER_TAG" \
-            -f sha="$GITHUB_SHA" >/dev/null
+
+          max_attempts=4
+          delay=5
+          error_file="$RUNNER_TEMP/canary-marker-error"
+
+          for (( attempt=1; attempt<=max_attempts; attempt++ )); do
+            if gh api --method POST \
+              "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$MARKER_TAG" \
+              -f sha="$GITHUB_SHA" >/dev/null 2>"$error_file"; then
+              rm -f "$error_file"
+              exit 0
+            fi
+
+            # A timed-out create can still have reached GitHub. Treat the
+            # marker appearing after a failed request as success.
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$MARKER_TAG" >/dev/null 2>&1; then
+              rm -f "$error_file"
+              exit 0
+            fi
+
+            error="$(tr -d '\r' <"$error_file" | tr '\n' ' ')"
+            if (( attempt < max_attempts )); then
+              echo "::warning::Failed to create $MARKER_TAG (attempt $attempt/$max_attempts); retrying in ${delay}s. $error"
+              sleep "$delay"
+              delay=$((delay * 2))
+              continue
+            fi
+
+            echo "::warning::Qualification succeeded, but $MARKER_TAG could not be created after $max_attempts attempts. The next scheduled run may requalify this SDK. $error"
+            {
+              echo "### Canary marker warning"
+              echo
+              echo "Qualification succeeded, but the marker tag \`$MARKER_TAG\` could not be recorded after $max_attempts attempts."
+              echo "The next scheduled run may requalify the same SDK."
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
+
+          rm -f "$error_file"
