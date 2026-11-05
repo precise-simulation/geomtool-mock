@@ -11,7 +11,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: netgen-sdk-canary-${{ github.ref }}
@@ -149,6 +149,8 @@ jobs:
     needs:
       - resolve
       - qualify
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Create canary marker tag
